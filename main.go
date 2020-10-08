@@ -37,6 +37,14 @@ func main() {
 	if len(os.Args) > 1 {
 		emailToAdd := os.Args[1]
 		if validateEmail(emailToAdd) {
+
+			emailExist := doEmailExists(emailList, emailToAdd)
+			if emailExist {
+				fmt.Println("Email is already in list")
+				fmt.Printf("List: %v", emailList)
+				return
+			}
+
 			emailList = append(emailList, emailToAdd)
 			// Write new email list
 			ioutil.WriteFile(fileName, []byte(strings.Join(emailList, "\n")), 0644)
@@ -48,4 +56,13 @@ func main() {
 
 	// Print the list
 	fmt.Printf("List: %v", emailList)
+}
+
+func doEmailExists(emailList []string, n string) bool {
+	for _, e := range emailList {
+		if n == e {
+			return true
+		}
+	}
+	return false
 }
