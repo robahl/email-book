@@ -17,6 +17,14 @@ func validateEmail(email string) bool {
 const fileName = "emails"
 
 func main() {
+	// Create file if it doesn't exsists.
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		_, err := os.Create(fileName)
+		if err != nil {
+			fmt.Println("Could not create file", err)
+			return
+		}
+	}
 	// Read emails
 	emails, err := ioutil.ReadFile(fileName)
 	if err != nil {
