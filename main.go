@@ -54,6 +54,45 @@ func printHighlightedLIst(emailList []string, selectedEmail string, textColor st
 	}
 }
 
+func addEmail(emailList []string, emailToAdd string) {
+	if validateEmail(emailToAdd) {
+		emailExist := doEmailExists(emailList, emailToAdd)
+		if emailExist {
+			fmt.Println("Email is already in list")
+			printHighlightedLIst(emailList, emailToAdd, "blue")
+			return
+		}
+
+		emailList = append(emailList, emailToAdd)
+		ioutil.WriteFile(fileName, []byte(strings.Join(emailList, "\n")), 0644)
+		printHighlightedLIst(emailList, emailToAdd, "green")
+	} else {
+		fmt.Println("Email is not valid")
+	}
+}
+
+func deleteEmail(emailList []string, email string) {
+	index := -1
+	for i, e := range emailList {
+		if e == email {
+			index = i
+			break
+		}
+	}
+
+	if index > -1 {
+		tmpList := make([]string, len(emailList))
+		copy(tmpList, emailList)
+
+		newList := append(emailList[:index], emailList[index+1:]...)
+		ioutil.WriteFile(fileName, []byte(strings.Join(newList, "\n")), 0644)
+		printHighlightedLIst(tmpList, email, "red")
+	} else {
+		fmt.Println("Email not in list")
+		printList(emailList)
+	}
+}
+
 func main() {
 	// Create file if it doesn't exsists.
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
@@ -63,37 +102,32 @@ func main() {
 			return
 		}
 	}
+
 	// Read emails
 	emails, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		fmt.Println("Could not read file", err.Error())
 		return
 	}
+
 	emailList := strings.Fields(string(emails))
+	nrOfArgs := len(os.Args)
 
 	// Add new email if arg
 	if len(os.Args) > 1 {
-		emailToAdd := os.Args[1]
-		if validateEmail(emailToAdd) {
-
-			emailExist := doEmailExists(emailList, emailToAdd)
-			if emailExist {
-				fmt.Println("Email is already in list")
-				printHighlightedLIst(emailList, emailToAdd, "blue")
-				return
+		switch arg := os.Args[1]; arg {
+		case "-d":
+			if nrOfArgs > 2 {
+				emailToRemove := os.Args[2]
+				deleteEmail(emailList, emailToRemove)
+			} else {
+				fmt.Println("You need to provide an email")
 			}
-
-			emailList = append(emailList, emailToAdd)
-			// Write new email list
-			ioutil.WriteFile(fileName, []byte(strings.Join(emailList, "\n")), 0644)
-			printHighlightedLIst(emailList, emailToAdd, "green")
-			return
-		} else {
-			fmt.Println("Email is not valid")
-			return
+		default:
+			emailToAdd := os.Args[1]
+			addEmail(emailList, emailToAdd)
 		}
+	} else {
+		printList(emailList)
 	}
-
-	// Print the list
-	printList(emailList)
 }
