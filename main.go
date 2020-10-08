@@ -1,12 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"github.com/fatih/color"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 const fileName = "emails"
@@ -33,7 +35,7 @@ func printList(emailList []string) {
 	}
 }
 
-func printHighlightedLIst(emailList []string, selectedEmail string, textColor string) {
+func printHighlightedList(emailList []string, selectedEmail string, textColor string) {
 	colors := map[string]color.Attribute{
 		"red":   color.FgHiRed,
 		"blue":  color.FgHiBlue,
@@ -54,53 +56,18 @@ func printHighlightedLIst(emailList []string, selectedEmail string, textColor st
 	}
 }
 
-func addEmail(emailList []string, emailToAdd string) {
-	if validateEmail(emailToAdd) {
-		emailExist := doEmailExists(emailList, emailToAdd)
-		if emailExist {
-			fmt.Println("Email is already in list")
-			printHighlightedLIst(emailList, emailToAdd, "blue")
-			return
-		}
+var remove bool
 
-		emailList = append(emailList, emailToAdd)
-		ioutil.WriteFile(fileName, []byte(strings.Join(emailList, "\n")), 0644)
-		printHighlightedLIst(emailList, emailToAdd, "green")
-	} else {
-		fmt.Println("Email is not valid")
-	}
-}
-
-func deleteEmail(emailList []string, email string) {
-	index := -1
-	for i, e := range emailList {
-		if e == email {
-			index = i
-			break
-		}
-	}
-
-	if index > -1 {
-		tmpList := make([]string, len(emailList))
-		copy(tmpList, emailList)
-
-		newList := append(emailList[:index], emailList[index+1:]...)
-		ioutil.WriteFile(fileName, []byte(strings.Join(newList, "\n")), 0644)
-		printHighlightedLIst(tmpList, email, "red")
-	} else {
-		fmt.Println("Email not in list")
-		printList(emailList)
-	}
+func init() {
+	flag.BoolVar(&remove, "remove", false, "indicates if it is a 'remove address' command")
 }
 
 func main() {
-	// Create file if it doesn't exsists.
-	if _, err := os.Stat(fileName); os.IsNotExist(err) {
-		_, err := os.Create(fileName)
-		if err != nil {
-			fmt.Println("Could not create file", err)
-			return
-		}
+	flag.Parse()
+
+	if err := initStorageFile(); err != nil {
+		fmt.Printf("Failed to initialize storage: %v", err)
+		return
 	}
 
 	// Read emails
@@ -111,23 +78,66 @@ func main() {
 	}
 
 	emailList := strings.Fields(string(emails))
-	nrOfArgs := len(os.Args)
 
 	// Add new email if arg
-	if len(os.Args) > 1 {
-		switch arg := os.Args[1]; arg {
-		case "-d":
-			if nrOfArgs > 2 {
-				emailToRemove := os.Args[2]
-				deleteEmail(emailList, emailToRemove)
-			} else {
-				fmt.Println("You need to provide an email")
-			}
-		default:
-			emailToAdd := os.Args[1]
-			addEmail(emailList, emailToAdd)
+	if len(flag.Args()) > 0 {
+		email := flag.Arg(0)
+		if remove {
+			removeEmail(emailList, email)
+		} else {
+			addEmail(emailList, email)
 		}
-	} else {
-		printList(emailList)
+		return
 	}
+}
+
+func initStorageFile() error {
+	// Create file if it doesn't exsists.
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		_, err := os.Create(fileName)
+		if err != nil {
+			return fmt.Errorf("failed to create file: %w", err)
+		}
+	}
+	return nil
+}
+
+func removeEmail(emailList []string, email string) {
+	if !doEmailExists(emailList, email) {
+		fmt.Println("Email is not yet in list")
+	} else {
+		fmt.Printf("Will remove %q fromt the list\n", email)
+	}
+	emailList = removeFromList(emailList, email)
+	printList(emailList)
+}
+
+func removeFromList(emailList []string, email string) []string {
+	out := make([]string, 0, len(emailList))
+	for _, el := range emailList {
+		if el != email {
+			out = append(out, el)
+		}
+	}
+	return out
+}
+
+func addEmail(emailList []string, email string) {
+	if validateEmail(email) {
+		emailExist := doEmailExists(emailList, email)
+		if emailExist {
+			fmt.Println("Email is already in list")
+			printHighlightedList(emailList, email, "blue")
+			return
+		}
+
+		emailList = append(emailList, email)
+		// Write new email list
+		ioutil.WriteFile(fileName, []byte(strings.Join(emailList, "\n")), 0644)
+		printHighlightedList(emailList, email, "green")
+		return
+	}
+
+	fmt.Println("Email is not valid")
+	return
 }
